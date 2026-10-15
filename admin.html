@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Raiz Ecobags — Admin</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,700&family=Work+Sans:wght@400;500;600;700&display=swap');
+  :root{
+    --forest:#1F3A2E; --forest-deep:#142621; --sage:#6B8F71;
+    --kraft:#E7E1CC; --kraft-dark:#D8CFAE; --ochre:#C1911C; --ochre-dark:#A87816;
+    --ink:#1A1F1B; --paper:#FBF9F2; --line:rgba(26,31,27,0.12);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ font-family:'Work Sans', sans-serif; background:var(--kraft); color:var(--ink); min-height:100vh; }
+
+  #gate{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .gate-box{ background:var(--paper); border-radius:18px; padding:30px 26px; width:100%; max-width:340px; box-shadow:0 10px 30px rgba(0,0,0,0.15); }
+  .gate-box h1{ font-family:'Fraunces',serif; font-size:20px; margin-bottom:6px; }
+  .gate-box p{ font-size:12.5px; color:#5b5f56; margin-bottom:18px; }
+
+  #app{ display:none; }
+  header{ background:var(--forest); color:var(--paper); padding:18px 22px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+  header h1{ font-family:'Fraunces', serif; font-size:20px; }
+  header h1 span{ color:var(--ochre); }
+  .tabs{ display:flex; gap:8px; align-items:center; }
+  .tab-btn{ padding:8px 16px; border-radius:20px; border:1.5px solid var(--paper); background:transparent; color:var(--paper); font-weight:600; font-size:13px; cursor:pointer; }
+  .tab-btn.active{ background:var(--paper); color:var(--forest); }
+  .logout{ background:none; border:none; color:var(--kraft-dark); font-size:12px; cursor:pointer; text-decoration:underline; margin-left:6px; }
+
+  main{ max-width:960px; margin:0 auto; padding:24px 18px 60px; }
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+
+  .card{ background:var(--paper); border-radius:16px; padding:20px; box-shadow:0 2px 10px rgba(20,38,33,0.07); margin-bottom:20px; }
+  .card h2{ font-family:'Fraunces', serif; font-size:17px; margin-bottom:14px; color:var(--forest-deep); }
+
+  .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .field.full{ grid-column:1/-1; }
+  .field label{ font-size:12px; font-weight:600; display:block; margin-bottom:5px; color:var(--forest-deep); }
+  .field input, .field select, .field textarea{ width:100%; padding:10px 12px; border:1.5px solid var(--line); border-radius:10px; font-size:14px; font-family:inherit; background:#fff; }
+  .field textarea{ resize:vertical; min-height:80px; }
+  .field input:focus, .field select:focus, .field textarea:focus{ outline:none; border-color:var(--forest); }
+  .preview-thumb{ width:70px; height:70px; border-radius:10px; background-size:cover; background-position:center; background-color:var(--kraft-dark); margin-top:8px; }
+
+  .btn{ padding:11px 20px; border:none; border-radius:10px; font-weight:700; font-size:13.5px; cursor:pointer; }
+  .btn-primary{ background:var(--forest); color:var(--paper); }
+  .btn-primary:disabled{ opacity:0.5; }
+  .btn-danger{ background:#fff; color:#a13a2c; border:1.5px solid #a13a2c; padding:6px 12px; font-size:12px; border-radius:8px; font-weight:700; cursor:pointer; }
+
+  .prod-list{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:12px; }
+  .prod-row{ background:#fff; border-radius:12px; padding:10px; display:flex; gap:10px; align-items:center; border:1px solid var(--line); }
+  .prod-thumb{ width:52px; height:52px; border-radius:8px; background-size:cover; background-position:center; background-color:var(--sage); flex-shrink:0; }
+  .prod-info{ flex:1; min-width:0; }
+  .prod-info .pn{ font-size:13px; font-weight:600; }
+  .prod-info .pc{ font-size:11px; color:#5b5f56; }
+  .prod-info .pp{ font-size:12.5px; font-weight:700; color:var(--forest-deep); }
+
+  .order-card{ background:#fff; border-radius:12px; padding:14px 16px; margin-bottom:12px; border:1px solid var(--line); }
+  .order-top{ display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
+  .order-buyer{ font-weight:700; font-size:14px; }
+  .order-date{ font-size:11.5px; color:#5b5f56; }
+  .pay-badge{ font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; text-transform:uppercase; letter-spacing:0.3px; }
+  .pay-badge.pix{ background:#E4F0E6; color:var(--forest-deep); }
+  .pay-badge.boleto{ background:#F3E9D2; color:var(--ochre-dark); }
+  .pay-badge.cartao{ background:#E3E7F0; color:#33406b; }
+  .order-items{ font-size:13px; margin:8px 0; line-height:1.6; }
+  .order-total{ font-family:'Fraunces', serif; font-weight:700; font-size:15px; }
+  .status-pill{ font-size:11px; font-weight:700; padding:5px 12px; border-radius:20px; cursor:pointer; border:none; }
+  .status-pill.novo{ background:var(--ochre); color:var(--forest-deep); }
+  .status-pill.concluido{ background:var(--sage); color:#fff; }
+  .empty-note{ text-align:center; color:#7a7d75; font-size:13px; padding:30px 10px; grid-column:1/-1; }
+  .error-note{ color:#a13a2c; font-size:12.5px; font-weight:600; margin-top:10px; }
+  .ok-note{ color:var(--sage); font-size:12.5px; font-weight:600; margin-top:10px; }
+
+  @media (max-width:560px){ .form-grid{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="gate-box">
+    <h1>Painel administrativo</h1>
+    <p>Digite a senha do admin.</p>
+    <div class="field" style="margin-bottom:12px;">
+      <input type="password" id="gatePass" placeholder="Senha do admin" onkeydown="if(event.key==='Enter')checkGate()">
+    </div>
+    <button class="btn btn-primary" id="gateBtn" style="width:100%;" onclick="checkGate()">Entrar</button>
+    <div class="error-note" id="gateError" style="display:none;"></div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <h1>Raiz<span>eco</span> · Admin</h1>
+    <div class="tabs">
+      <button class="tab-btn active" id="tabBtnProdutos" onclick="switchTab('produtos')">Produtos</button>
+      <button class="tab-btn" id="tabBtnPedidos" onclick="switchTab('pedidos')">Pedidos</button>
+      <button class="logout" onclick="logout()">sair</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="panel active" id="panelProdutos">
+      <div class="card">
+        <h2>Cadastrar novo produto</h2>
+        <div class="form-grid">
+          <div class="field"><label>Nome</label><input type="text" id="pName" placeholder="Ex: Ecobag Bordada Flora"></div>
+          <div class="field"><label>Categoria</label>
+            <select id="pCat">
+              <option value="simples">Simples</option>
+              <option value="basica">Básica</option>
+              <option value="detalhada">Detalhada</option>
+            </select>
+          </div>
+          <div class="field"><label>Preço (R$)</label><input type="number" id="pPrice" min="0" step="0.01" placeholder="0.00"></div>
+          <div class="field"><label>Foto do produto</label><input type="file" id="pImage" accept="image/*"><div class="preview-thumb" id="pPreview"></div></div>
+          <div class="field full"><label>Descrição</label><textarea id="pDesc" placeholder="Material, tamanho, acabamento..."></textarea></div>
+        </div>
+        <button class="btn btn-primary" id="addProdBtn" style="margin-top:16px;" onclick="addProduct()">Adicionar produto</button>
+        <div class="error-note" id="prodError" style="display:none;"></div>
+        <div class="ok-note" id="prodOk" style="display:none;"></div>
+      </div>
+
+      <div class="card">
+        <h2>Produtos cadastrados</h2>
+        <div class="prod-list" id="prodList"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panelPedidos">
+      <div class="card">
+        <h2>Pedidos recebidos</h2>
+        <div id="orderList"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://nnfslkbosabavurwonae.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_UAC2jxJ09qTtCK0LEB6aDw_e2g9YciE';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const CAT_LABEL = {simples:'Simples', basica:'Básica', detalhada:'Detalhada'};
+const PAY_LABEL = {pix:'Pix', boleto:'Boleto', cartao:'Cartão'};
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const brl = n => 'R$ ' + Number(n).toFixed(2).replace('.', ',');
+
+let adminPass = '';
+let pendingImageBlob = null;
+let timer = null;
+
+/* ---------- ENTRADA ---------- */
+async function verifyPass(pass){
+  const { data, error } = await sb.rpc('admin_ok', { p_pass: pass });
+  if(error){ console.error(error); return { ok:false, msg:'Erro de conexão com o banco. O script SQL foi executado?' }; }
+  return data === true ? { ok:true } : { ok:false, msg:'Senha incorreta.' };
+}
+async function checkGate(){
+  const pass = document.getElementById('gatePass').value;
+  const err = document.getElementById('gateError');
+  const btn = document.getElementById('gateBtn');
+  err.style.display = 'none';
+  btn.disabled = true; btn.textContent = 'Verificando...';
+  const r = await verifyPass(pass);
+  btn.disabled = false; btn.textContent = 'Entrar';
+  if(!r.ok){ err.textContent = r.msg; err.style.display = 'block'; return; }
+  sessionStorage.setItem('ecobag_admin_pass', pass);
+  enterApp(pass);
+}
+function enterApp(pass){
+  adminPass = pass;
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  loadProducts(); loadOrders();
+  clearInterval(timer);
+  timer = setInterval(() => { loadProducts(); loadOrders(); }, 10000);
+}
+function logout(){
+  sessionStorage.removeItem('ecobag_admin_pass');
+  location.reload();
+}
+(async function autoEnter(){
+  const saved = sessionStorage.getItem('ecobag_admin_pass');
+  if(!saved) return;
+  const r = await verifyPass(saved);
+  if(r.ok) enterApp(saved);
+})();
+
+function switchTab(tab){
+  document.getElementById('panelProdutos').classList.toggle('active', tab === 'produtos');
+  document.getElementById('panelPedidos').classList.toggle('active', tab === 'pedidos');
+  document.getElementById('tabBtnProdutos').classList.toggle('active', tab === 'produtos');
+  document.getElementById('tabBtnPedidos').classList.toggle('active', tab === 'pedidos');
+}
+
+/* ---------- FOTO: reduz o tamanho antes de enviar ---------- */
+function resizeImage(file, maxSide = 1000, quality = 0.82){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('Falha ao processar a imagem')), 'image/jpeg', quality);
+      };
+      img.onerror = () => reject(new Error('Imagem inválida'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('Falha ao ler o arquivo'));
+    reader.readAsDataURL(file);
+  });
+}
+document.getElementById('pImage').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  pendingImageBlob = null;
+  document.getElementById('pPreview').style.backgroundImage = '';
+  if(!file) return;
+  try{
+    pendingImageBlob = await resizeImage(file);
+    document.getElementById('pPreview').style.backgroundImage = `url('${URL.createObjectURL(pendingImageBlob)}')`;
+  }catch(err){ showProdError(err.message); }
+});
+
+function showProdError(msg){
+  const el = document.getElementById('prodError');
+  document.getElementById('prodOk').style.display = 'none';
+  el.textContent = msg; el.style.display = 'block';
+}
+
+/* ---------- PRODUTOS ---------- */
+async function loadProducts(){
+  const { data, error } = await sb.from('products').select('*').order('created_at', { ascending:false });
+  const el = document.getElementById('prodList');
+  if(error){ console.error(error); el.innerHTML = `<div class="empty-note">Erro ao carregar produtos.</div>`; return; }
+  if(data.length === 0){ el.innerHTML = `<div class="empty-note">Nenhum produto cadastrado ainda.</div>`; return; }
+  el.innerHTML = data.map(p => `
+    <div class="prod-row">
+      <div class="prod-thumb" ${p.image_url ? `style="background-image:url('${esc(p.image_url)}')"` : ''}></div>
+      <div class="prod-info">
+        <div class="pn">${esc(p.name)}</div>
+        <div class="pc">${CAT_LABEL[p.cat] || ''}</div>
+        <div class="pp">${brl(p.price)}</div>
+      </div>
+      <button class="btn-danger" onclick="removeProduct('${p.id}')">Remover</button>
+    </div>`).join('');
+}
+
+async function addProduct(){
+  const name = document.getElementById('pName').value.trim();
+  const cat = document.getElementById('pCat').value;
+  const price = parseFloat(document.getElementById('pPrice').value);
+  const desc = document.getElementById('pDesc').value.trim();
+  document.getElementById('prodError').style.display = 'none';
+  document.getElementById('prodOk').style.display = 'none';
+
+  if(!name || isNaN(price) || price <= 0){ showProdError('Preencha o nome e um preço válido.'); return; }
+  const btn = document.getElementById('addProdBtn');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  try{
+    let imageUrl = '';
+    if(pendingImageBlob){
+      const path = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.jpg';
+      const up = await sb.storage.from('product-images').upload(path, pendingImageBlob, { contentType:'image/jpeg' });
+      if(up.error) throw up.error;
+      imageUrl = sb.storage.from('product-images').getPublicUrl(path).data.publicUrl;
+    }
+    const { error } = await sb.rpc('admin_add_product', {
+      p_pass: adminPass, p_name: name, p_cat: cat, p_price: price, p_desc: desc, p_image_url: imageUrl
+    });
+    if(error) throw error;
+
+    document.getElementById('pName').value = '';
+    document.getElementById('pPrice').value = '';
+    document.getElementById('pDesc').value = '';
+    document.getElementById('pImage').value = '';
+    document.getElementById('pPreview').style.backgroundImage = '';
+    pendingImageBlob = null;
+    const ok = document.getElementById('prodOk');
+    ok.textContent = 'Produto cadastrado!'; ok.style.display = 'block';
+    loadProducts();
+  }catch(e){
+    console.error(e);
+    showProdError('Erro ao salvar: ' + (e.message || 'confira o setup no Supabase.'));
+  }
+  btn.disabled = false; btn.textContent = 'Adicionar produto';
+}
+
+async function removeProduct(id){
+  if(!confirm('Remover este produto da loja?')) return;
+  const { error } = await sb.rpc('admin_delete_product', { p_pass: adminPass, p_id: id });
+  if(error){ console.error(error); alert('Erro ao remover: ' + error.message); return; }
+  loadProducts();
+}
+
+/* ---------- PEDIDOS ---------- */
+async function loadOrders(){
+  const { data, error } = await sb.rpc('admin_list_orders', { p_pass: adminPass });
+  const el = document.getElementById('orderList');
+  if(error){ console.error(error); el.innerHTML = `<div class="empty-note">Erro ao carregar pedidos.</div>`; return; }
+  if(!data || data.length === 0){ el.innerHTML = `<div class="empty-note">Nenhum pedido recebido ainda.</div>`; return; }
+  el.innerHTML = data.map(o => {
+    const date = new Date(o.created_at).toLocaleString('pt-BR');
+    const itemsHtml = (o.items || []).map(i => `${i.qty}× ${esc(i.name)} — ${brl(i.price * i.qty)}`).join('<br>');
+    const status = o.status || 'novo';
+    return `
+      <div class="order-card">
+        <div class="order-top">
+          <div>
+            <div class="order-buyer">${esc(o.buyer_name)} · <span style="font-weight:500;color:#5b5f56;">${esc(o.code)}</span></div>
+            <div class="order-date">${date}</div>
+          </div>
+          <span class="pay-badge ${esc(o.payment)}">${PAY_LABEL[o.payment] || esc(o.payment)}</span>
+        </div>
+        <div class="order-items">${itemsHtml}</div>
+        <div class="order-top" style="margin:6px 0 0;">
+          <button class="status-pill ${status}" onclick="toggleStatus('${o.id}','${status}')">${status === 'novo' ? 'Marcar como concluído' : 'Concluído ✓'}</button>
+          <div class="order-total">${brl(o.total)}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function toggleStatus(id, current){
+  const next = current === 'novo' ? 'concluido' : 'novo';
+  const { error } = await sb.rpc('admin_set_status', { p_pass: adminPass, p_id: id, p_status: next });
+  if(error){ console.error(error); alert('Erro ao atualizar: ' + error.message); return; }
+  loadOrders();
+}
+</script>
+</body>
+</html>
